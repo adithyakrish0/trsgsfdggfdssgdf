@@ -8,18 +8,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary: #000080; /* Navy blue for headings */
-            --primary-dark: #00005a;
-            --secondary: #228B22; /* Forest green for buttons */
-            --success: #2E8B57; /* Sea green for success actions */
-            --danger: #800020; /* Burgundy for danger/warnings */
-            --warning: #FF8C00; /* Dark orange for warnings */
-            --light: #F8F8F8; /* Off-white background */
-            --dark: #333333; /* Dark gray for text */
-            --gray: #666666; /* Medium gray for secondary text */
-            --light-gray: #E5E5E5; /* Light gray for borders */
-            --card-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            --primary: #4361ee;
+            --primary-light: #eef2ff;
+            --primary-dark: #3a56d4;
+            --secondary: #4cc9f0;
+            --secondary-dark: #3ab7dc;
+            --success: #2ecc71;
+            --danger: #f72585;
+            --warning: #ff9e00;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --lighter-gray: #f5f7fa;
+            --card-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --card-shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
             --transition: all 0.3s ease;
+            --border-radius: 16px;
         }
         
         * {
@@ -30,147 +35,171 @@
         
         body {
             font-family: 'Poppins', sans-serif;
-            background-color: var(--light);
+            background-color: var(--lighter-gray);
             color: var(--dark);
             line-height: 1.6;
             padding: 20px;
-            font-size: 18px; /* Increased base font size */
+            min-height: 100vh;
+            font-size: 18px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
         }
         
         .header {
             text-align: center;
             margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
         }
         
         .header h1 {
-            font-size: 36px; /* Larger font size */
+            font-size: 32px;
             color: var(--primary);
             margin-bottom: 10px;
-            font-weight: 600;
         }
         
         .header p {
-            font-size: 20px; /* Larger font size */
             color: var(--gray);
+            font-size: 18px;
         }
         
-        .user-info {
+        .user-card {
             display: flex;
             align-items: center;
-            justify-content: center;
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 25px;
             margin-bottom: 30px;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
         }
         
-        .user-info img {
-            width: 100px; /* Larger profile image */
+        .user-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--card-shadow-hover);
+        }
+        
+        .user-avatar {
+            width: 100px;
             height: 100px;
             border-radius: 50%;
             object-fit: cover;
-            margin-right: 20px;
-            border: 4px solid var(--secondary); /* Green border */
+            margin-right: 25px;
+            border: 4px solid var(--primary-light);
         }
         
-        .user-text h2 {
-            font-size: 28px; /* Larger font size */
+        .user-info h2 {
+            font-size: 28px;
             margin-bottom: 5px;
             color: var(--primary);
         }
         
-        .user-text p {
+        .user-info p {
             color: var(--gray);
-            font-size: 20px; /* Larger font size */
+            font-size: 18px;
         }
         
-        .medication-display {
+        .medication-card {
             background: white;
-            border-radius: 16px;
+            border-radius: var(--border-radius);
             padding: 30px;
             margin-bottom: 25px;
             box-shadow: var(--card-shadow);
             text-align: center;
-            border: 2px solid var(--light-gray); /* Added border for clarity */
+            transition: var(--transition);
+            border-top: 6px solid var(--primary);
         }
         
-        .medication-display h2 {
-            font-size: 32px; /* Larger font size */
+        .medication-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--card-shadow-hover);
+        }
+        
+        .medication-card h2 {
+            font-size: 26px;
             color: var(--primary);
             margin-bottom: 15px;
         }
         
-        .medication-display p {
-            font-size: 22px; /* Larger font size */
+        .medication-card p {
+            font-size: 20px;
             margin-bottom: 25px;
             color: var(--dark);
-            line-height: 1.5;
         }
         
-        .medication-display strong {
+        .medication-card strong {
             color: var(--primary);
             font-weight: 600;
         }
         
-        .pill-bottle {
-            width: 180px; /* Larger pill bottle */
-            height: 240px;
-            background: linear-gradient(135deg, #000080, #228B22); /* Navy to green gradient */
-            border-radius: 90px 90px 25px 25px;
-            margin: 0 auto 30px;
-            position: relative;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        .pill-container {
             display: flex;
-            flex-direction: column;
             justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .pill {
+            width: 120px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 60px;
+            display: flex;
             align-items: center;
+            justify-content: center;
             color: white;
-        }
-        
-        .pill-bottle .cap {
-            width: 120px; /* Larger cap */
-            height: 35px;
-            background: var(--warning); /* Orange cap */
-            border-radius: 15px 15px 0 0;
-            position: absolute;
-            top: -35px;
-        }
-        
-        .pill-bottle .label {
-            font-size: 22px; /* Larger label */
+            font-size: 24px;
             font-weight: 600;
-            text-align: center;
-            padding: 20px;
+            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
+            position: relative;
+            animation: pulse 2s infinite;
         }
         
-        .actions {
+        .pill::before {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 40px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50px;
+            top: 10px;
+            left: 10px;
+        }
+        
+        .action-buttons {
             display: flex;
             justify-content: center;
             gap: 20px;
-            margin-top: 30px;
+            margin-top: 20px;
         }
         
         .btn {
-            padding: 18px 35px; /* Larger buttons */
-            border-radius: 12px;
-            font-weight: 600; /* Bolder text */
+            padding: 18px 35px;
+            border-radius: var(--border-radius);
+            font-weight: 600;
             cursor: pointer;
             border: none;
             transition: var(--transition);
-            font-size: 22px; /* Larger font size */
-            min-width: 220px; /* Wider buttons */
+            font-size: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
-            border: 2px solid transparent; /* For better visibility */
+            gap: 10px;
+            min-width: 200px;
         }
         
         .btn-success {
-            background: var(--secondary);
+            background: var(--success);
             color: white;
         }
         
         .btn-success:hover {
-            background: #1a6b1a;
-            border-color: #134913;
+            background: #27ae60;
+            transform: translateY(-3px);
         }
         
         .btn-danger {
@@ -179,111 +208,113 @@
         }
         
         .btn-danger:hover {
-            background: #660019;
-            border-color: #4d0013;
+            background: #e5177a;
+            transform: translateY(-3px);
         }
         
-        .btn-warning {
-            background: var(--warning);
-            color: white;
-        }
-        
-        .emergency-panel {
+        .upcoming-meds {
             background: white;
-            border-radius: 16px;
-            padding: 30px;
-            margin-top: 30px;
-            box-shadow: var(--card-shadow);
-            text-align: center;
-            border: 2px solid var(--light-gray); /* Added border for clarity */
-        }
-        
-        .emergency-panel h3 {
-            margin-bottom: 20px;
-            color: var(--danger);
-            font-size: 28px; /* Larger font size */
-        }
-        
-        .emergency-panel p {
+            border-radius: var(--border-radius);
+            padding: 25px;
             margin-bottom: 25px;
-            font-size: 20px; /* Larger font size */
-            color: var(--dark); /* Darker text for better contrast */
+            box-shadow: var(--card-shadow);
+        }
+        
+        .upcoming-meds h3 {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--light-gray);
+        }
+        
+        .med-item {
+            display: flex;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--light-gray);
+        }
+        
+        .med-item:last-child {
+            border-bottom: none;
+        }
+        
+        .med-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            color: var(--primary);
+            font-size: 24px;
+        }
+        
+        .med-details {
+            flex: 1;
+        }
+        
+        .med-details h4 {
+            font-size: 20px;
+            margin-bottom: 5px;
+            color: var(--dark);
+        }
+        
+        .med-time {
+            font-size: 18px;
+            color: var(--gray);
+        }
+        
+        .emergency-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 30px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+            border-top: 6px solid var(--danger);
+        }
+        
+        .emergency-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--card-shadow-hover);
+        }
+        
+        .emergency-card h3 {
+            font-size: 24px;
+            color: var(--danger);
+            margin-bottom: 15px;
+        }
+        
+        .emergency-card p {
+            font-size: 18px;
+            margin-bottom: 25px;
+            color: var(--dark);
         }
         
         .emergency-btn {
-            width: 120px; /* Larger button */
-            height: 120px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
-            background: var(--danger);
+            background: linear-gradient(135deg, var(--danger), #e5177a);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto;
-            font-size: 36px; /* Larger icon */
+            font-size: 36px;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(128, 0, 32, 0.4);
+            box-shadow: 0 10px 20px rgba(247, 37, 133, 0.3);
             transition: var(--transition);
-            border: 4px solid white; /* Added border for visibility */
+            animation: blink 1.5s infinite;
+            border: 4px solid white;
         }
         
         .emergency-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 20px rgba(128, 0, 32, 0.6);
-        }
-        
-        .next-medication {
-            background: white;
-            border-radius: 16px;
-            padding: 25px;
-            margin-top: 30px;
-            box-shadow: var(--card-shadow);
-            border: 2px solid var(--light-gray); /* Added border for clarity */
-        }
-        
-        .next-medication h3 {
-            margin-bottom: 20px;
-            color: var(--primary);
-            font-size: 26px; /* Larger font size */
-        }
-        
-        .medication-item {
-            display: flex;
-            align-items: center;
-            padding: 20px 0; /* More padding */
-            border-bottom: 2px solid var(--light-gray); /* Thicker border */
-        }
-        
-        .medication-item:last-child {
-            border-bottom: none;
-        }
-        
-        .medication-icon {
-            width: 60px; /* Larger icon */
-            height: 60px;
-            border-radius: 12px;
-            background: rgba(34, 139, 34, 0.1); /* Green tint */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 20px;
-            color: var(--secondary);
-            font-size: 24px; /* Larger icon */
-        }
-        
-        .medication-info {
-            flex: 1;
-        }
-        
-        .medication-info h4 {
-            font-size: 22px; /* Larger font size */
-            margin-bottom: 8px;
-            color: var(--primary);
-        }
-        
-        .medication-time {
-            font-size: 20px; /* Larger font size */
-            color: var(--dark); /* Darker text for better contrast */
+            transform: scale(1.1);
+            box-shadow: 0 15px 30px rgba(247, 37, 133, 0.4);
         }
         
         /* Animations */
@@ -293,108 +324,111 @@
             100% { transform: scale(1); }
         }
         
-        .pulse {
-            animation: pulse 2s infinite;
-        }
-        
         @keyframes blink {
             0% { opacity: 1; }
-            50% { opacity: 0.7; } /* Less drastic blink */
+            50% { opacity: 0.7; }
             100% { opacity: 1; }
-        }
-        
-        .blink {
-            animation: blink 1.5s infinite; /* Slower blink */
         }
         
         /* Responsive Design */
         @media (max-width: 768px) {
-            .actions {
+            .user-card {
                 flex-direction: column;
+                text-align: center;
+            }
+            
+            .user-avatar {
+                margin-right: 0;
+                margin-bottom: 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 15px;
             }
             
             .btn {
                 width: 100%;
-                font-size: 20px;
-                padding: 16px;
             }
             
             .header h1 {
-                font-size: 32px;
-            }
-            
-            .medication-display h2 {
                 font-size: 28px;
             }
             
-            body {
+            .header p {
                 font-size: 16px;
+            }
+            
+            .user-info h2 {
+                font-size: 24px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Rest of the HTML remains the same as in the original file -->
-    <div class="header">
-        <h1>MedGuardian</h1>
-        <p>Your medication companion</p>
-    </div>
-    
-    <div class="user-info">
-        <img src="https://randomuser.me/api/portraits/men/75.jpg" alt="User">
-        <div class="user-text">
-            <h2>Robert Johnson</h2>
-            <p>Good morning!</p>
-        </div>
-    </div>
-    
-    <div class="medication-display">
-        <h2>Time for Your Medication</h2>
-        <p>Please take your <strong>Metformin (500mg)</strong></p>
-        
-        <div class="pill-bottle pulse">
-            <div class="cap"></div>
-            <div class="label">Diabetes</div>
+    <div class="container">
+        <div class="header">
+            <h1>MedGuardian</h1>
+            <p>Your medication companion</p>
         </div>
         
-        <div class="actions">
-            <button class="btn btn-success" id="took-medication">
-                <i class="fas fa-check"></i> I Took It
-            </button>
-            <button class="btn btn-danger" id="skip-medication">
-                <i class="fas fa-times"></i> Skip
-            </button>
-        </div>
-    </div>
-    
-    <div class="emergency-panel">
-        <h3>Emergency Assistance</h3>
-        <p>Press the button below if you need immediate help</p>
-        <div class="emergency-btn blink" id="emergency-button">
-            <i class="fas fa-bell"></i>
-        </div>
-    </div>
-    
-    <div class="next-medication">
-        <h3>Upcoming Medications</h3>
-        
-        <div class="medication-item">
-            <div class="medication-icon">
-                <i class="fas fa-pills"></i>
-            </div>
-            <div class="medication-info">
-                <h4>Lisinopril (10mg)</h4>
-                <p class="medication-time">Next: 12:00 PM</p>
+        <div class="user-card">
+            <img src="https://randomuser.me/api/portraits/men/75.jpg" alt="User" class="user-avatar">
+            <div class="user-info">
+                <h2>Robert Johnson</h2>
+                <p>Good morning! Time for your medication</p>
             </div>
         </div>
         
-        <div class="medication-item">
-            <div class="medication-icon">
-                <i class="fas fa-pills"></i>
+        <div class="medication-card">
+            <h2>Current Medication</h2>
+            <p>Please take your <strong>Metformin (500mg)</strong></p>
+            
+            <div class="pill-container">
+                <div class="pill">
+                    <i class="fas fa-pills"></i>
+                </div>
             </div>
-            <div class="medication-info">
-                <h4>Atorvastatin (20mg)</h4>
-                <p class="medication-time">Next: 8:00 PM</p>
+            
+            <div class="action-buttons">
+                <button class="btn btn-success" id="took-medication">
+                    <i class="fas fa-check"></i> I Took It
+                </button>
+                <button class="btn btn-danger" id="skip-medication">
+                    <i class="fas fa-times"></i> Skip
+                </button>
+            </div>
+        </div>
+        
+        <div class="upcoming-meds">
+            <h3>Upcoming Medications</h3>
+            
+            <div class="med-item">
+                <div class="med-icon">
+                    <i class="fas fa-pills"></i>
+                </div>
+                <div class="med-details">
+                    <h4>Lisinopril (10mg)</h4>
+                    <p class="med-time">Next: 12:00 PM</p>
+                </div>
+            </div>
+            
+            <div class="med-item">
+                <div class="med-icon">
+                    <i class="fas fa-pills"></i>
+                </div>
+                <div class="med-details">
+                    <h4>Atorvastatin (20mg)</h4>
+                    <p class="med-time">Next: 8:00 PM</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="emergency-card">
+            <h3>Emergency Assistance</h3>
+            <p>Press the button below if you need immediate help</p>
+            <div class="emergency-btn" id="emergency-button">
+                <i class="fas fa-bell"></i>
             </div>
         </div>
     </div>
@@ -407,16 +441,14 @@
             const data = await response.json();
             // Update UI with data.currentMedication
             if (data.currentMedication) {
-                document.querySelector('.medication-display h2').textContent = "Time for Your Medication";
-                document.querySelector('.medication-display p').innerHTML = `Please take your <strong>${data.currentMedication.name} (${data.currentMedication.dosage})</strong>`;
-                document.querySelector('.pill-bottle .label').textContent = data.currentMedication.purpose || '';
+                document.querySelector('.medication-card h2').textContent = "Current Medication";
+                document.querySelector('.medication-card p').innerHTML = `Please take your <strong>${data.currentMedication.name} (${data.currentMedication.dosage})</strong>`;
                 // Store medicationId for later use
                 document.querySelector('#took-medication').dataset.medicationId = data.currentMedication.id;
                 document.querySelector('#skip-medication').dataset.medicationId = data.currentMedication.id;
             } else {
-                document.querySelector('.medication-display h2').textContent = "No Medication Due";
-                document.querySelector('.medication-display p').textContent = "You have no medication to take right now.";
-                document.querySelector('.pill-bottle .label').textContent = '';
+                document.querySelector('.medication-card h2').textContent = "No Medication Due";
+                document.querySelector('.medication-card p').textContent = "You have no medication to take right now.";
                 document.querySelector('#took-medication').dataset.medicationId = '';
                 document.querySelector('#skip-medication').dataset.medicationId = '';
             }
@@ -474,12 +506,6 @@
                     alert('EMERGENCY ALERT SENT! Caregivers and emergency contacts have been notified. Help is on the way.');
                 }
             });
-            
-            // Make the current medication pulse to draw attention
-            const pillBottle = document.querySelector('.pill-bottle');
-            setInterval(() => {
-                pillBottle.classList.toggle('pulse');
-            }, 4000);
         });
     </script>
 </body>
