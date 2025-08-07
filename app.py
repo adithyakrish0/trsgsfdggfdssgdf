@@ -1,4 +1,5 @@
-# app.py (updated)
+import cv2
+import numpy as np # app.py (updated)
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime, timedelta
 from functools import wraps

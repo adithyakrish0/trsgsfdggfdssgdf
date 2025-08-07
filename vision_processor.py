@@ -2,7 +2,7 @@
 import cv2
 import numpy as np
 from datetime import datetime
-from hand_tracker_opencv import HandTracker  # Import the OpenCV-based hand tracker
+from hand_tracker import HandTracker
 from bottle_tracker import BottleTracker
 
 class VisionProcessor:
