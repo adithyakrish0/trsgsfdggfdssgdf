@@ -40,6 +40,22 @@ class Schedule(db.Model):
     taken = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime)
 
+class VisionSession(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    senior_id = db.Column(db.Integer, db.ForeignKey('senior.id'), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='active')  # active, completed, failed
+    medication_id = db.Column(db.Integer, db.ForeignKey('medication.id'))
+    
+class VisionEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('vision_session.id'), nullable=False)
+    event_type = db.Column(db.String(50), nullable=False)  # bottle_open, hand_to_mouth, bottle_close, etc.
+    timestamp = db.Column(db.DateTime, nullable=False)
+    confidence = db.Column(db.Float)
+    frame_data = db.Column(db.Text)  # Path to frame image or base64 encoded thumbnail
+
 # Create database tables
 with app.app_context():
     db.create_all()
@@ -259,6 +275,195 @@ def emergency_alert(senior_id):
         "timestamp": datetime.now().isoformat()
     })
 
+@app.route('/api/vision/session/start', methods=['POST'])
+@authenticate
+def start_vision_session(senior_id):
+    """Start a new medication monitoring session"""
+    data = request.get_json()
+    medication_id = data.get('medicationId')
+    
+    session = VisionSession(
+        senior_id=senior_id,
+        medication_id=medication_id,
+        start_time=datetime.now()
+    )
+    db.session.add(session)
+    db.session.commit()
+    
+    return jsonify({
+        "sessionId": session.id,
+        "status": "active"
+    })
+
+@app.route('/api/vision/event', methods=['POST'])
+@authenticate
+def record_vision_event(senior_id):
+    """Record a vision-detected event"""
+    data = request.get_json()
+    session_id = data.get("sessionId")
+    event_type = data.get("eventType")
+    confidence = data.get("confidence", 0.0)
+    
+    # Verify session exists and belongs to this senior
+    session = VisionSession.query.filter_by(id=session_id, senior_id=senior_id).first()
+    if not session:
+        return jsonify({"error": "Invalid session"}), 404
+    
+    # Record the event
+    event = VisionEvent(
+        session_id=session_id,
+        event_type=event_type,
+        timestamp=datetime.now(),
+        confidence=confidence
+    )
+    db.session.add(event)
+    
+    # Process the event
+    if event_type == "bottle_close":
+        # Check if we have a complete sequence: open -> hand_to_mouth -> close
+        events = VisionEvent.query.filter_by(session_id=session_id).all()
+        has_open = any(e.event_type == "bottle_open" for e in events)
+        has_hand_to_mouth = any(e.event_type == "hand_to_mouth" for e in events)
+        
+        if has_open and has_hand_to_mouth:
+            # Complete sequence detected - mark medication as taken
+            medication = Medication.query.get(session.medication_id)
+            if medication:
+                # Find the schedule for this medication at current time
+                current_time = get_current_time()
+                schedule = Schedule.query.filter_by(
+                    medication_id=medication.id,
+                    time=current_time
+                ).first()
+                
+                if schedule and not schedule.taken:
+                    schedule.taken = True
+                    schedule.timestamp = datetime.now()
+                    medication.stock -= 1
+                    
+                    # Update senior's last active time
+                    senior = Senior.query.get(senior_id)
+                    if senior:
+                        senior.last_active = datetime.now()
+    
+    db.session.commit()
+    
+    return jsonify({"success": True})
+
+@app.route('/api/vision/session/end', methods=['POST'])
+@authenticate
+def end_vision_session(senior_id):
+    """End a medication monitoring session"""
+    data = request.get_json()
+    session_id = data.get("sessionId")
+    status = data.get("status", "completed")
+    
+    session = VisionSession.query.filter_by(id=session_id, senior_id=senior_id).first()
+    if not session:
+        return jsonify({"error": "Invalid session"}), 404
+    
+    session.end_time = datetime.now()
+    session.status = status
+    db.session.commit()
+    
+    return jsonify({"success": True})
+
+@app.route('/api/vision/process-frame', methods=['POST'])
+@authenticate
+def process_vision_frame(senior_id):
+    """Process a video frame using computer vision"""
+    data = request.get_json()
+    session_id = data.get("sessionId")
+    frame_data = data.get("frameData")
+    
+    # Verify session exists and belongs to this senior
+    session = VisionSession.query.filter_by(id=session_id, senior_id=senior_id).first()
+    if not session:
+        return jsonify({"error": "Invalid session"}), 404
+    
+    # Decode base64 frame data
+    import base64
+    from io import BytesIO
+    
+    # Extract the base64 string
+    if 'base64,' in frame_data:
+        frame_data = frame_data.split('base64,')[1]
+    
+    # Decode to bytes
+    frame_bytes = base64.b64decode(frame_data)
+    
+    # Convert to numpy array
+    nparr = np.frombuffer(frame_bytes, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    
+    # Process frame with vision system
+    vision_processor = VisionProcessor()
+    events = vision_processor.process_frame(frame, session_id)
+    
+    # Record events
+    for event in events:
+        vision_event = VisionEvent(
+            session_id=session_id,
+            event_type=event['type'],
+            timestamp=event['timestamp'],
+            confidence=event['confidence']
+        )
+        db.session.add(vision_event)
+    
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "events": events
+    })
+
+@app.route('/api/vision/status', methods=['GET'])
+def get_vision_status():
+    """Get current vision monitoring status for a senior"""
+    senior_id = request.args.get('seniorId')
+    
+    # Find active session for this senior
+    session = VisionSession.query.filter_by(
+        senior_id=senior_id,
+        status='active'
+    ).first()
+    
+    if session:
+        return jsonify({
+            "status": "Monitoring in progress",
+            "sessionId": session.id,
+            "startTime": session.start_time.isoformat()
+        })
+    else:
+        return jsonify({
+            "status": "Not monitoring"
+        })
+
+@app.route('/api/vision/events', methods=['GET'])
+def get_vision_events():
+    """Get vision events for a senior"""
+    senior_id = request.args.get('seniorId')
+    limit = request.args.get('limit', 20, type=int)
+    
+    # Get sessions for this senior
+    sessions = VisionSession.query.filter_by(senior_id=senior_id).all()
+    session_ids = [session.id for session in sessions]
+    
+    # Get events for these sessions
+    events = VisionEvent.query.filter(
+        VisionEvent.session_id.in_(session_ids)
+    ).order_by(VisionEvent.timestamp.desc()).limit(limit).all()
+    
+    return jsonify({
+        "events": [{
+            "id": event.id,
+            "type": event.event_type,
+            "timestamp": event.timestamp.isoformat(),
+            "confidence": event.confidence,
+            "sessionId": event.session_id
+        } for event in events]
+    })
+    
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 3000))  # Use PORT environment variable if available
     app.run(host='0.0.0.0', port=port)

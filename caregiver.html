@@ -1246,6 +1246,20 @@
                             </div>
                         </div>
                         
+                        <!-- Vision Monitoring Card -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Vision Monitoring</h3>
+                                <button class="btn btn-primary" id="request-vision-monitoring">Start Monitoring</button>
+                            </div>
+                            <div>
+                                <p>Status: <span id="vision-status">Not Active</span></p>
+                            </div>
+                            <div id="vision-events">
+                                <!-- Vision events will be loaded here -->
+                            </div>
+                        </div>
+                        
                         <!-- Quick Actions -->
                         <div class="card">
                             <div class="card-header">
@@ -1950,7 +1964,6 @@
             </div>
         </div>
     </div>
-
     <script>
         // Fetch senior data
         async function loadSeniors() {
@@ -1968,7 +1981,6 @@
                 alert('Failed to load senior data. Please try again later.');
             }
         }
-
         // Fetch medications for a senior
         async function loadMedications(seniorId) {
             try {
@@ -1985,7 +1997,6 @@
                 alert('Failed to load medication data. Please try again later.');
             }
         }
-
         // Initialize Charts
         document.addEventListener('DOMContentLoaded', function() {
             // Compliance Chart
@@ -2265,6 +2276,97 @@
             // Load initial data
             loadSeniors();
         });
+
+        // Vision monitoring for caregivers
+        document.getElementById('request-vision-monitoring').addEventListener('click', async function() {
+            // Send request to senior to start monitoring
+            // In a real implementation, this would trigger a notification on the senior's device
+            alert('Monitoring request sent to senior. They will need to start the monitoring session on their device.');
+            
+            // Start checking for monitoring status
+            checkMonitoringStatus();
+        });
+        
+        async function checkMonitoringStatus() {
+            try {
+                const response = await fetch('/api/vision/status?seniorId=1');
+                const data = await response.json();
+                
+                // Update UI with monitoring status
+                document.getElementById('vision-status').textContent = data.status;
+                
+                // Load vision events
+                loadVisionEvents();
+            } catch (error) {
+                console.error('Error checking monitoring status:', error);
+            }
+        }
+        
+        async function loadVisionEvents() {
+            try {
+                const response = await fetch('/api/vision/events?seniorId=1');
+                const data = await response.json();
+                
+                // Clear existing events
+                const eventsContainer = document.getElementById('vision-events');
+                eventsContainer.innerHTML = '';
+                
+                // Add events to UI
+                data.events.forEach(event => {
+                    const eventElement = document.createElement('div');
+                    eventElement.className = 'log-item';
+                    
+                    const iconClass = getEventIcon(event.type);
+                    const eventTime = new Date(event.timestamp).toLocaleTimeString();
+                    
+                    eventElement.innerHTML = `
+                        <div class="log-icon ${iconClass.class}">
+                            <i class="fas ${iconClass.icon}"></i>
+                        </div>
+                        <div class="log-content">
+                            <h4>${formatEventType(event.type)}</h4>
+                            <p>Confidence: ${Math.round(event.confidence * 100)}%</p>
+                        </div>
+                        <div class="log-time">
+                            ${eventTime}
+                        </div>
+                    `;
+                    
+                    eventsContainer.appendChild(eventElement);
+                });
+            } catch (error) {
+                console.error('Error loading vision events:', error);
+            }
+        }
+        
+        function getEventIcon(eventType) {
+            switch (eventType) {
+                case 'bottle_open':
+                    return { class: 'icon-primary', icon: 'fa-bottle-droplet' };
+                case 'bottle_close':
+                    return { class: 'icon-success', icon: 'fa-bottle-droplet' };
+                case 'hand_to_mouth':
+                    return { class: 'icon-warning', icon: 'fa-hand' };
+                default:
+                    return { class: 'icon-primary', icon: 'fa-circle' };
+            }
+        }
+        
+        function formatEventType(eventType) {
+            switch (eventType) {
+                case 'bottle_open':
+                    return 'Bottle Opened';
+                case 'bottle_close':
+                    return 'Bottle Closed';
+                case 'hand_to_mouth':
+                    return 'Medication Intake';
+                default:
+                    return eventType;
+            }
+        }
+        
+        // Check monitoring status periodically
+        setInterval(checkMonitoringStatus, 10000); // Check every 10 seconds
     </script>
 </body>
 </html>
