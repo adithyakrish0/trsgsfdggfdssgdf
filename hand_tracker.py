@@ -1,58 +1,42 @@
-# hand_tracker.py
+# hand_tracker_opencv.py
 import cv2
-import mediapipe as mp
 import numpy as np
 
 class HandTracker:
-    def __init__(self, static_image_mode=False, max_num_hands=2, 
-                 min_detection_confidence=0.5, min_tracking_confidence=0.5):
-        """
-        Initialize the MediaPipe Hands solution.
-        
-        Args:
-            static_image_mode: Whether to treat the input images as a batch of static
-                and possibly unrelated images, or as a video stream.
-            max_num_hands: Maximum number of hands to detect.
-            min_detection_confidence: Minimum confidence value for hand detection.
-            min_tracking_confidence: Minimum confidence value for hand tracking.
-        """
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=static_image_mode,
-            max_num_hands=max_num_hands,
-            min_detection_confidence=min_detection_confidence,
-            min_tracking_confidence=min_tracking_confidence
-        )
-        self.mp_drawing = mp.solutions.drawing_utils
+    def __init__(self):
         self.prev_hands = []
         self.next_id = 0
         
+        # Load the pre-trained hand detection model
+        # Using OpenCV's DNN module with a pre-trained model
+        self.net = cv2.dnn.readNetFromCaffe(
+            'deploy.prototxt', 
+            'hand_detection.caffemodel'
+        )
+        
+        # If model files are not available, fall back to contour-based detection
+        self.fallback_mode = True
+        
     def track(self, frame, skin_mask=None, faces=None):
         """
-        Track hands in the current frame using MediaPipe Hands.
+        Track hands in the current frame using OpenCV.
         
         Args:
             frame: Input image (BGR format).
-            skin_mask: Unused parameter (kept for compatibility).
+            skin_mask: Optional skin mask for better detection.
             faces: Unused parameter (kept for compatibility).
             
         Returns:
             List of detected hands with their information.
         """
-        # Convert the BGR image to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Process the frame and get hand landmarks
-        results = self.hands.process(rgb_frame)
-        
         detected_hands = []
         
-        if results.multi_hand_landmarks:
-            for idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
-                # Get hand information
-                hand_info = self._extract_hand_info(hand_landmarks, frame, idx)
-                if hand_info:
-                    detected_hands.append(hand_info)
+        if not self.fallback_mode:
+            # Use DNN-based detection
+            detected_hands = self._detect_with_dnn(frame)
+        else:
+            # Use contour-based detection
+            detected_hands = self._detect_with_contours(frame, skin_mask)
         
         # Track hands across frames
         tracked_hands = self._track_hands(detected_hands)
@@ -60,135 +44,204 @@ class HandTracker:
         self.prev_hands = tracked_hands
         return tracked_hands
     
-    def _extract_hand_info(self, hand_landmarks, frame, idx):
+    def _detect_with_dnn(self, frame):
         """
-        Extract hand information from landmarks.
+        Detect hands using OpenCV's DNN module.
         
         Args:
-            hand_landmarks: MediaPipe hand landmarks.
-            frame: Input frame for size reference.
-            idx: Index of the hand in the detection results.
+            frame: Input frame.
             
         Returns:
-            Dictionary containing hand information.
+            List of detected hands.
         """
-        # Get image dimensions
-        h, w, _ = frame.shape
+        h, w = frame.shape[:2]
         
-        # Calculate hand center (using wrist landmark)
-        wrist = hand_landmarks.landmark[self.mp_hands.HandLandmark.WRIST]
-        cx, cy = int(wrist.x * w), int(wrist.y * h)
+        # Prepare input blob
+        blob = cv2.dnn.blobFromImage(
+            frame, 1.0, (300, 300), (104.0, 177.0, 123.0)
+        )
         
-        # Calculate hand radius (distance from wrist to middle finger MCP)
-        middle_mcp = hand_landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
-        mx, my = int(middle_mcp.x * w), int(middle_mcp.y * h)
-        radius = int(np.sqrt((cx - mx)**2 + (cy - my)**2))
+        # Pass blob through the network
+        self.net.setInput(blob)
+        detections = self.net.forward()
         
-        # Calculate bounding box
-        x_coords = [landmark.x * w for landmark in hand_landmarks.landmark]
-        y_coords = [landmark.y * h for landmark in hand_landmarks.landmark]
-        x_min, x_max = int(min(x_coords)), int(max(x_coords))
-        y_min, y_max = int(min(y_coords)), int(max(y_coords))
+        detected_hands = []
         
-        # Calculate hand orientation (angle between wrist and middle finger)
-        orientation = np.arctan2(my - cy, mx - cx) * 180 / np.pi
+        # Process detections
+        for i in range(detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+            
+            if confidence > 0.5:  # Confidence threshold
+                # Get bounding box coordinates
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                (startX, startY, endX, endY) = box.astype("int")
+                
+                # Ensure bounding box is within frame dimensions
+                startX = max(0, startX)
+                startY = max(0, startY)
+                endX = min(w - 1, endX)
+                endY = min(h - 1, endY)
+                
+                # Extract hand ROI
+                hand_roi = frame[startY:endY, startX:endX]
+                if hand_roi.size == 0:
+                    continue
+                
+                # Calculate hand center and radius
+                cx = (startX + endX) // 2
+                cy = (startY + endY) // 2
+                radius = min(endX - startX, endY - startY) // 2
+                
+                # Determine if hand is open or closed
+                is_open = self._is_hand_open_contour(hand_roi)
+                
+                detected_hands.append({
+                    'id': None,
+                    'center': (cx, cy),
+                    'radius': radius,
+                    'bounding_box': (startX, startY, endX - startX, endY - startY),
+                    'orientation': 0,  # Not calculated in this method
+                    'is_open': is_open,
+                    'confidence': float(confidence)
+                })
         
-        # Determine if hand is open or closed
-        is_open = self._is_hand_open(hand_landmarks, h, w)
-        
-        # Calculate confidence (average of landmark visibility)
-        confidence = sum([landmark.visibility for landmark in hand_landmarks.landmark]) / len(hand_landmarks.landmark)
-        
-        return {
-            'id': None,  # Will be assigned in tracking
-            'center': (cx, cy),
-            'radius': radius,
-            'bounding_box': (x_min, y_min, x_max - x_min, y_max - y_min),
-            'orientation': orientation,
-            'is_open': is_open,
-            'confidence': confidence,
-            'landmarks': hand_landmarks
-        }
+        return detected_hands
     
-    def _is_hand_open(self, hand_landmarks, h, w):
+    def _detect_with_contours(self, frame, skin_mask):
         """
-        Determine if the hand is open or closed based on finger positions.
+        Detect hands using contour-based approach.
         
         Args:
-            hand_landmarks: MediaPipe hand landmarks.
-            h, w: Frame height and width.
+            frame: Input frame.
+            skin_mask: Optional skin mask for better detection.
             
         Returns:
-            Boolean indicating if the hand is open.
+            List of detected hands.
         """
-        # Get key landmarks
-        wrist = hand_landmarks.landmark[self.mp_hands.HandLandmark.WRIST]
-        thumb_tip = hand_landmarks.landmark[self.mp_hands.HandLandmark.THUMB_TIP]
-        thumb_ip = hand_landmarks.landmark[self.mp_hands.HandLandmark.THUMB_IP]
-        index_tip = hand_landmarks.landmark[self.mp_hands.HandLandmark.INDEX_FINGER_TIP]
-        index_pip = hand_landmarks.landmark[self.mp_hands.HandLandmark.INDEX_FINGER_PIP]
-        middle_tip = hand_landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
-        middle_pip = hand_landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_PIP]
-        ring_tip = hand_landmarks.landmark[self.mp_hands.HandLandmark.RING_FINGER_TIP]
-        ring_pip = hand_landmarks.landmark[self.mp_hands.HandLandmark.RING_FINGER_PIP]
-        pinky_tip = hand_landmarks.landmark[self.mp_hands.HandLandmark.PINKY_TIP]
-        pinky_pip = hand_landmarks.landmark[self.mp_hands.HandLandmark.PINKY_PIP]
+        # Convert to HSV color space
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         
-        # Convert to pixel coordinates
-        def to_pixel(landmark):
-            return int(landmark.x * w), int(landmark.y * h)
+        # Define skin color range in HSV
+        lower_skin = np.array([0, 20, 70], dtype=np.uint8)
+        upper_skin = np.array([20, 255, 255], dtype=np.uint8)
         
-        wrist_px = to_pixel(wrist)
-        thumb_tip_px = to_pixel(thumb_tip)
-        thumb_ip_px = to_pixel(thumb_ip)
-        index_tip_px = to_pixel(index_tip)
-        index_pip_px = to_pixel(index_pip)
-        middle_tip_px = to_pixel(middle_tip)
-        middle_pip_px = to_pixel(middle_pip)
-        ring_tip_px = to_pixel(ring_tip)
-        ring_pip_px = to_pixel(ring_pip)
-        pinky_tip_px = to_pixel(pinky_tip)
-        pinky_pip_px = to_pixel(pinky_pip)
+        # Extract skin mask
+        if skin_mask is None:
+            skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
         
-        # Calculate distances from fingertips to PIP joints
-        index_dist = np.sqrt((index_tip_px[0] - index_pip_px[0])**2 + (index_tip_px[1] - index_pip_px[1])**2)
-        middle_dist = np.sqrt((middle_tip_px[0] - middle_pip_px[0])**2 + (middle_tip_px[1] - middle_pip_px[1])**2)
-        ring_dist = np.sqrt((ring_tip_px[0] - ring_pip_px[0])**2 + (ring_tip_px[1] - ring_pip_px[1])**2)
-        pinky_dist = np.sqrt((pinky_tip_px[0] - pinky_pip_px[0])**2 + (pinky_tip_px[1] - pinky_pip_px[1])**2)
+        # Apply morphological operations
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_OPEN, kernel)
+        skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_CLOSE, kernel)
         
-        # Calculate thumb distance
-        thumb_dist = np.sqrt((thumb_tip_px[0] - thumb_ip_px[0])**2 + (thumb_tip_px[1] - thumb_ip_px[1])**2)
+        # Find contours
+        contours, _ = cv2.findContours(skin_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Calculate hand size (wrist to middle finger MCP)
-        middle_mcp = hand_landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
-        middle_mcp_px = to_pixel(middle_mcp)
-        hand_size = np.sqrt((wrist_px[0] - middle_mcp_px[0])**2 + (wrist_px[1] - middle_mcp_px[1])**2)
+        detected_hands = []
         
-        # Normalize distances by hand size
-        index_dist_norm = index_dist / hand_size
-        middle_dist_norm = middle_dist / hand_size
-        ring_dist_norm = ring_dist / hand_size
-        pinky_dist_norm = pinky_dist / hand_size
-        thumb_dist_norm = thumb_dist / hand_size
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            
+            # Filter by area
+            if area < 1000:  # Minimum area threshold
+                continue
+            
+            # Get bounding rectangle
+            x, y, w, h = cv2.boundingRect(contour)
+            
+            # Calculate aspect ratio
+            aspect_ratio = float(w) / h
+            
+            # Filter by aspect ratio (hands are typically not too wide or too tall)
+            if aspect_ratio < 0.5 or aspect_ratio > 2.0:
+                continue
+            
+            # Extract hand ROI
+            hand_roi = frame[y:y+h, x:x+w]
+            if hand_roi.size == 0:
+                continue
+            
+            # Calculate hand center
+            M = cv2.moments(contour)
+            if M["m00"] == 0:
+                continue
+            
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+            
+            # Calculate radius
+            radius = int(np.sqrt(area / np.pi))
+            
+            # Determine if hand is open or closed
+            is_open = self._is_hand_open_contour(hand_roi)
+            
+            detected_hands.append({
+                'id': None,
+                'center': (cx, cy),
+                'radius': radius,
+                'bounding_box': (x, y, w, h),
+                'orientation': 0,  # Not calculated in this method
+                'is_open': is_open,
+                'confidence': min(1.0, area / 10000)  # Simple confidence based on area
+            })
         
-        # Thresholds for determining if fingers are extended
-        threshold = 0.4
+        return detected_hands
+    
+    def _is_hand_open_contour(self, hand_roi):
+        """
+        Determine if hand is open or closed using contour analysis.
         
-        # Count extended fingers
-        extended = 0
-        if index_dist_norm > threshold:
-            extended += 1
-        if middle_dist_norm > threshold:
-            extended += 1
-        if ring_dist_norm > threshold:
-            extended += 1
-        if pinky_dist_norm > threshold:
-            extended += 1
-        if thumb_dist_norm > threshold * 0.8:  # Thumb has different threshold
-            extended += 1
+        Args:
+            hand_roi: Hand region of interest.
+            
+        Returns:
+            Boolean indicating if hand is open.
+        """
+        # Convert to grayscale
+        gray = cv2.cvtColor(hand_roi, cv2.COLOR_BGR2GRAY)
         
-        # Consider hand open if at least 3 fingers are extended
-        return extended >= 3
+        # Apply threshold
+        _, thresh = cv2.threshold(gray, 70, 255, cv2.THRESH_BINARY)
+        
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if not contours:
+            return False
+        
+        # Find the largest contour (hand)
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Calculate convex hull
+        hull = cv2.convexHull(largest_contour)
+        
+        # Calculate convexity defects
+        try:
+            hull_indices = cv2.convexHull(largest_contour, returnPoints=False)
+            defects = cv2.convexityDefects(largest_contour, hull_indices)
+            
+            if defects is None:
+                return False
+            
+            # Count significant defects (potential gaps between fingers)
+            significant_defects = 0
+            for i in range(defects.shape[0]):
+                s, e, f, d = defects[i, 0]
+                if d > 5000:  # Threshold for significant defect
+                    significant_defects += 1
+            
+            # Consider hand open if there are at least 3 significant defects
+            return significant_defects >= 3
+        except:
+            # Fallback: use contour area vs. convex hull area ratio
+            hull_area = cv2.contourArea(hull)
+            contour_area = cv2.contourArea(largest_contour)
+            
+            if hull_area == 0:
+                return False
+            
+            solidity = float(contour_area) / hull_area
+            return solidity < 0.85  # Open hands typically have lower solidity
     
     def _track_hands(self, detected_hands):
         """
@@ -230,23 +283,39 @@ class HandTracker:
         
         return tracked_hands
     
-    def draw_landmarks(self, frame, hands):
+    def draw_debug_info(self, frame, hands):
         """
-        Draw hand landmarks on the frame for visualization.
+        Draw debug information on the frame.
         
         Args:
             frame: Input frame.
             hands: List of detected hands.
             
         Returns:
-            Frame with drawn landmarks.
+            Frame with debug information drawn.
         """
-        if hands:
-            for hand in hands:
-                if 'landmarks' in hand:
-                    self.mp_drawing.draw_landmarks(
-                        frame, 
-                        hand['landmarks'], 
-                        self.mp_hands.HAND_CONNECTIONS
-                    )
+        for hand in hands:
+            cx, cy = hand['center']
+            radius = hand['radius']
+            x, y, w, h = hand['bounding_box']
+            
+            # Draw bounding box
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            
+            # Draw hand circle
+            cv2.circle(frame, (cx, cy), radius, (0, 255, 0), 2)
+            
+            # Draw hand ID
+            cv2.putText(frame, f"Hand {hand['id']}", (x, y - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            # Draw hand state (open/closed)
+            state = "Open" if hand['is_open'] else "Closed"
+            cv2.putText(frame, state, (x, y + h + 20), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            # Draw confidence
+            cv2.putText(frame, f"{hand['confidence']:.2f}", (x + w - 50, y - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        
         return frame

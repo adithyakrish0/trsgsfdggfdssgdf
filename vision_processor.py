@@ -2,17 +2,12 @@
 import cv2
 import numpy as np
 from datetime import datetime
-from hand_tracker import HandTracker
-from bottle_tracker import BottleTracker  # Keep your existing bottle tracker for now
+from hand_tracker_opencv import HandTracker  # Import the OpenCV-based hand tracker
+from bottle_tracker import BottleTracker
 
 class VisionProcessor:
     def __init__(self):
-        self.hand_tracker = HandTracker(
-            static_image_mode=False,
-            max_num_hands=2,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        self.hand_tracker = HandTracker()
         self.bottle_tracker = BottleTracker()
         
     def process_frame(self, frame, session_id):
@@ -100,7 +95,7 @@ class VisionProcessor:
         vx, vy = hand['velocity']
         
         # Simple heuristic: hand is moving upward and is in the upper part of the frame
-        if vy < -2 and cy < frame.shape[0] * 0.6:  # Moving upward and in upper 60% of frame
+        if vy < -2 and cy < 480 * 0.6:  # Assuming frame height of 480
             return True
         
         return False
@@ -117,25 +112,8 @@ class VisionProcessor:
         Returns:
             Frame with debug information drawn.
         """
-        # Draw hand landmarks
-        frame = self.hand_tracker.draw_landmarks(frame, hands)
-        
         # Draw hand information
-        for hand in hands:
-            cx, cy = hand['center']
-            radius = hand['radius']
-            
-            # Draw hand circle
-            cv2.circle(frame, (cx, cy), radius, (0, 255, 0), 2)
-            
-            # Draw hand ID
-            cv2.putText(frame, f"Hand {hand['id']}", (cx - 20, cy - radius - 10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            
-            # Draw hand state (open/closed)
-            state = "Open" if hand['is_open'] else "Closed"
-            cv2.putText(frame, state, (cx - 20, cy + radius + 20), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        frame = self.hand_tracker.draw_debug_info(frame, hands)
         
         # Draw bottle information (using your existing implementation)
         for bottle in bottles:
