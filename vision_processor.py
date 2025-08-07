@@ -1,144 +1,153 @@
+# vision_processor.py
 import cv2
 import numpy as np
 from datetime import datetime
+from hand_tracker import HandTracker
+from bottle_tracker import BottleTracker  # Keep your existing bottle tracker for now
 
 class VisionProcessor:
     def __init__(self):
-        self.skin_model = self._initialize_skin_model()
-        self.face_detector = self._initialize_face_detector()
-        self.hand_tracker = HandTracker()
+        self.hand_tracker = HandTracker(
+            static_image_mode=False,
+            max_num_hands=2,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
         self.bottle_tracker = BottleTracker()
         
-    def _initialize_skin_model(self):
-        """Initialize YCbCr skin color model"""
-        # Parameters from the paper
-        return {
-            'Cb': (77, 127),
-            'Cr': (133, 173),
-            'sigma_skin': 1.0,
-            'sigma_non_skin': 0.5
-        }
-    
-    def _initialize_face_detector(self):
-        """Initialize hybrid face detector"""
-        # Load templates and parameters
-        return {
-            'eye_template': self._create_eye_template(),
-            'mouth_map_params': {'eta': 0.95},  # From paper
-            'rotation_tolerance': 10  # degrees
-        }
-    
-    def _create_eye_template(self):
-        """Create 3-line template for eyes/nose/chin"""
-        # Implementation based on paper
-        pass
-    
-    def segment_skin(self, frame):
-        """Segment skin regions using YCbCr color space"""
-        # Convert to YCbCr
-        ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
-        
-        # Extract channels
-        Cr = ycrcb[:,:,1]
-        Cb = ycrcb[:,:,2]
-        
-        # Apply skin model
-        skin_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
-        
-        # Create Gaussian weights
-        skin_mask = self._apply_gaussian_model(Cr, Cb, skin_mask)
-        
-        # Apply morphological operations
-        skin_mask = self._morphological_operations(skin_mask)
-        
-        return skin_mask
-    
-    def _apply_gaussian_model(self, Cr, Cb, mask):
-        """Apply 2D Gaussian weighting for skin detection"""
-        # Implementation from paper
-        return mask
-    
-    def _morphological_operations(self, mask):
-        """Apply morphological operations to clean up skin mask"""
-        # Median filter
-        mask = cv2.medianBlur(mask, 5)
-        
-        # Binary closing
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        
-        # Hole filling
-        contours, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-        for cnt in contours:
-            cv2.drawContours(mask, [cnt], 0, 255, -1)
-        
-        return mask
-    
-    def detect_faces(self, frame, skin_mask):
-        """Detect faces using hybrid approach"""
-        # Implementation of face detection from paper
-        faces = []
-        
-        # Step 1: Initial filtering with shape/size thresholds
-        # Step 2: Template matching with rotation tolerance
-        # Step 3: Feature localization for eyes and mouth
-        # Step 4: Verification with facial projection curve
-        
-        return faces
-    
     def process_frame(self, frame, session_id):
-        """Process a single frame and return detected events"""
+        """
+        Process a single frame and return detected events.
+        
+        Args:
+            frame: Input frame (BGR format).
+            session_id: ID of the current vision session.
+            
+        Returns:
+            List of detected events.
+        """
         events = []
         
-        # 1. Skin segmentation
-        skin_mask = self.segment_skin(frame)
+        # 1. Hand tracking
+        hands = self.hand_tracker.track(frame)
         
-        # 2. Face detection
-        faces = self.detect_faces(frame, skin_mask)
+        # 2. Bottle tracking (using your existing implementation)
+        bottles = self.bottle_tracker.track(frame, None, hands)
         
-        # 3. Hand tracking
-        hands = self.hand_tracker.track(frame, skin_mask, faces)
-        
-        # 4. Bottle tracking
-        bottles = self.bottle_tracker.track(frame, skin_mask, hands)
-        
-        # 5. Event detection
-        events = self.detect_events(hands, bottles, faces, session_id)
+        # 3. Event detection
+        events = self.detect_events(hands, bottles, session_id)
         
         return events
     
-    def detect_events(self, hands, bottles, faces, session_id):
-        """Detect high-level events like bottle opening, hand to mouth, etc."""
+    def detect_events(self, hands, bottles, session_id):
+        """
+        Detect high-level events like bottle opening, hand to mouth, etc.
+        
+        Args:
+            hands: List of detected hands.
+            bottles: List of detected bottles.
+            session_id: ID of the current vision session.
+            
+        Returns:
+            List of detected events.
+        """
         events = []
         
-        # Check for bottle opening/closing
-        for bottle in bottles:
-            if bottle.state_changed('open'):
+        # Check for hand to mouth gesture
+        for hand in hands:
+            if self._is_hand_near_mouth(hand):
                 events.append({
-                    'type': 'bottle_open',
-                    'confidence': bottle.confidence,
-                    'timestamp': datetime.now()
-                })
-            elif bottle.state_changed('close'):
-                events.append({
-                    'type': 'bottle_close',
-                    'confidence': bottle.confidence,
+                    'type': 'hand_to_mouth',
+                    'confidence': hand['confidence'],
                     'timestamp': datetime.now()
                 })
         
-        # Check for hand to mouth
-        for hand in hands:
-            for face in faces:
-                if self._hand_near_mouth(hand, face):
+        # Check for bottle opening/closing (using your existing implementation)
+        for bottle in bottles:
+            if bottle.get('state_changed', False):
+                if bottle['state'] == 'open':
                     events.append({
-                        'type': 'hand_to_mouth',
-                        'confidence': hand.confidence,
+                        'type': 'bottle_open',
+                        'confidence': bottle['confidence'],
+                        'timestamp': datetime.now()
+                    })
+                elif bottle['state'] == 'closed':
+                    events.append({
+                        'type': 'bottle_close',
+                        'confidence': bottle['confidence'],
                         'timestamp': datetime.now()
                     })
         
         return events
     
-    def _hand_near_mouth(self, hand, face):
-        """Check if hand is near mouth region"""
-        # Implementation based on hand and face positions
+    def _is_hand_near_mouth(self, hand):
+        """
+        Check if hand is near the mouth region.
+        
+        Args:
+            hand: Hand information dictionary.
+            
+        Returns:
+            Boolean indicating if hand is near mouth.
+        """
+        # Get hand center
+        cx, cy = hand['center']
+        
+        # Estimate mouth position (above hand center by approximately hand radius)
+        mouth_y = cy - hand['radius'] * 1.5
+        
+        # Check if hand is moving upward (toward mouth)
+        vx, vy = hand['velocity']
+        
+        # Simple heuristic: hand is moving upward and is in the upper part of the frame
+        if vy < -2 and cy < frame.shape[0] * 0.6:  # Moving upward and in upper 60% of frame
+            return True
+        
         return False
+    
+    def draw_debug_info(self, frame, hands, bottles):
+        """
+        Draw debug information on the frame.
+        
+        Args:
+            frame: Input frame.
+            hands: List of detected hands.
+            bottles: List of detected bottles.
+            
+        Returns:
+            Frame with debug information drawn.
+        """
+        # Draw hand landmarks
+        frame = self.hand_tracker.draw_landmarks(frame, hands)
+        
+        # Draw hand information
+        for hand in hands:
+            cx, cy = hand['center']
+            radius = hand['radius']
+            
+            # Draw hand circle
+            cv2.circle(frame, (cx, cy), radius, (0, 255, 0), 2)
+            
+            # Draw hand ID
+            cv2.putText(frame, f"Hand {hand['id']}", (cx - 20, cy - radius - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            # Draw hand state (open/closed)
+            state = "Open" if hand['is_open'] else "Closed"
+            cv2.putText(frame, state, (cx - 20, cy + radius + 20), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        
+        # Draw bottle information (using your existing implementation)
+        for bottle in bottles:
+            x, y = bottle['position']
+            w, h = bottle['size']
+            
+            # Draw bottle rectangle
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            
+            # Draw bottle state
+            state = bottle.get('state', 'unknown')
+            cv2.putText(frame, f"Bottle: {state}", (x, y - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+        
+        return frame

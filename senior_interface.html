@@ -629,10 +629,26 @@
     </div>
     
     <script>
+        // Add a debug mode toggle
+        const debugModeToggle = document.createElement('div');
+        debugModeToggle.style.position = 'fixed';
+        debugModeToggle.style.top = '10px';
+        debugModeToggle.style.right = '10px';
+        debugModeToggle.style.zIndex = '1000';
+        debugModeToggle.innerHTML = `
+            <label style="display: flex; align-items: center; background: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px;">
+                <input type="checkbox" id="debug-mode" style="margin-right: 8px;">
+                Debug Mode
+            </label>
+        `;
+        document.body.appendChild(debugModeToggle);
+        
         // Camera and vision monitoring functionality
         let cameraStream = null;
         let monitoringInterval = null;
         let isMonitoring = false;
+        let currentSessionId = null; // Track the current session ID
+        
         // DOM elements
         const startCameraBtn = document.getElementById('start-camera');
         const stopCameraBtn = document.getElementById('stop-camera');
@@ -710,6 +726,7 @@
             .then(response => response.json())
             .then(data => {
                 console.log('Monitoring started:', data);
+                currentSessionId = data.sessionId; // Store the session ID
                 
                 // Start processing frames
                 monitoringInterval = setInterval(processFrame, 1000); // Process every second
@@ -748,7 +765,7 @@
             });
         }
         
-        // Process video frame
+        // Modify processFrame function to use debug endpoint when in debug mode
         function processFrame() {
             if (!cameraStream || !isMonitoring) return;
             
@@ -766,14 +783,19 @@
             // Convert to base64
             const imageData = canvas.toDataURL('image/jpeg', 0.8);
             
+            // Check if debug mode is enabled
+            const debugMode = document.getElementById('debug-mode').checked;
+            const endpoint = debugMode ? '/api/vision/debug-frame' : '/api/vision/process-frame';
+            
             // Send to server for processing
-            fetch('/api/vision/process_frame', {
+            fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ 
                     seniorId: 1,
+                    sessionId: currentSessionId,  // Use the tracked session ID
                     image: imageData
                 })
             })
@@ -795,6 +817,23 @@
                             }
                         }
                     });
+                }
+                
+                // If debug mode, show debug frame
+                if (debugMode && data.debugFrame) {
+                    // Create a new video element to show debug frame
+                    if (!document.getElementById('debug-feed')) {
+                        const debugFeed = document.createElement('img');
+                        debugFeed.id = 'debug-feed';
+                        debugFeed.style.position = 'fixed';
+                        debugFeed.style.bottom = '10px';
+                        debugFeed.style.right = '10px';
+                        debugFeed.style.width = '320px';
+                        debugFeed.style.border = '2px solid green';
+                        debugFeed.style.zIndex = '1000';
+                        document.body.appendChild(debugFeed);
+                    }
+                    document.getElementById('debug-feed').src = data.debugFrame;
                 }
             })
             .catch(error => {

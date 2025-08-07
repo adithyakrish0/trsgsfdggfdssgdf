@@ -463,7 +463,66 @@ def get_vision_events():
             "sessionId": event.session_id
         } for event in events]
     })
+# Add to app.py
+
+@app.route('/api/vision/debug-frame', methods=['POST'])
+@authenticate
+def process_debug_frame(senior_id):
+    """Process a video frame and return debug visualization"""
+    data = request.get_json()
+    session_id = data.get("sessionId")
+    frame_data = data.get("frameData")
     
+    # Verify session exists and belongs to this senior
+    session = VisionSession.query.filter_by(id=session_id, senior_id=senior_id).first()
+    if not session:
+        return jsonify({"error": "Invalid session"}), 404
+    
+    # Decode base64 frame data
+    import base64
+    from io import BytesIO
+    
+    # Extract the base64 string
+    if 'base64,' in frame_data:
+        frame_data = frame_data.split('base64,')[1]
+    
+    # Decode to bytes
+    frame_bytes = base64.b64decode(frame_data)
+    
+    # Convert to numpy array
+    nparr = np.frombuffer(frame_bytes, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    
+    # Process frame with vision system
+    vision_processor = VisionProcessor()
+    events = vision_processor.process_frame(frame, session_id)
+    
+    # Draw debug information
+    hands = vision_processor.hand_tracker.hands
+    bottles = vision_processor.bottle_tracker.bottles
+    debug_frame = vision_processor.draw_debug_info(frame, hands, bottles)
+    
+    # Encode debug frame to base64
+    _, buffer = cv2.imencode('.jpg', debug_frame)
+    debug_frame_data = base64.b64encode(buffer).decode('utf-8')
+    
+    # Record events
+    for event in events:
+        vision_event = VisionEvent(
+            session_id=session_id,
+            event_type=event['type'],
+            timestamp=event['timestamp'],
+            confidence=event['confidence']
+        )
+        db.session.add(vision_event)
+    
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "events": events,
+        "debugFrame": f"data:image/jpeg;base64,{debug_frame_data}"
+    })
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 3000))  # Use PORT environment variable if available
     app.run(host='0.0.0.0', port=port)
