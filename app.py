@@ -1,58 +1,56 @@
+# app.py (updated)
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime, timedelta
 from functools import wraps
 import os
-from flask_cors import CORS  # Add CORS support
+from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__, static_folder='static')
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
-# In-memory database (consider using a real database in production)
-medications = [
-    {
-        "id": 1,
-        "seniorId": 1,
-        "name": "Metformin",
-        "dosage": "500mg",
-        "type": "Diabetes",
-        "schedule": [
-            {"time": "08:00", "taken": True, "timestamp": "2023-05-15T08:05:00"},
-            {"time": "20:00", "taken": False, "timestamp": None}
-        ],
-        "instructions": "Take with breakfast and dinner",
-        "stock": 15
-    },
-    {
-        "id": 2,
-        "seniorId": 1,
-        "name": "Lisinopril",
-        "dosage": "10mg",
-        "type": "Blood Pressure",
-        "schedule": [
-            {"time": "12:00", "taken": False, "timestamp": None}
-        ],
-        "instructions": "Take at noon",
-        "stock": 5
-    }
-]
+# Configure database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///medguardian.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
-seniors = [
-    {
-        "id": 1,
-        "name": "Robert Johnson",
-        "age": 72,
-        "photo": "https://randomuser.me/api/portraits/men/75.jpg",
-        "lastActive": datetime.now().isoformat()
-    }
-]
+# Define database models
+class Senior(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    age = db.Column(db.Integer)
+    photo = db.Column(db.String(200))
+    last_active = db.Column(db.DateTime)
+
+class Medication(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    senior_id = db.Column(db.Integer, db.ForeignKey('senior.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    dosage = db.Column(db.String(50))
+    type = db.Column(db.String(50))
+    instructions = db.Column(db.Text)
+    stock = db.Column(db.Integer)
+    
+    schedules = db.relationship('Schedule', backref='medication', lazy=True)
+
+class Schedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    medication_id = db.Column(db.Integer, db.ForeignKey('medication.id'), nullable=False)
+    time = db.Column(db.String(5), nullable=False)  # HH:MM format
+    taken = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime)
+
+# Create database tables
+with app.app_context():
+    db.create_all()
 
 def get_current_time():
     """Get current time in HH:MM format"""
     now = datetime.now()
     return f"{now.hour:02d}:{now.minute:02d}"
 
+# Authentication decorator
 def authenticate(func):
-    """Authentication decorator for protected endpoints"""
     @wraps(func)
     def decorated(*args, **kwargs):
         senior_id = request.headers.get('Senior-Id') or request.args.get('seniorId')
@@ -65,6 +63,63 @@ def authenticate(func):
         kwargs['senior_id'] = senior_id
         return func(*args, **kwargs)
     return decorated
+
+# Initialize sample data
+def init_sample_data():
+    with app.app_context():
+        if Senior.query.count() == 0:
+            # Create sample senior
+            senior = Senior(
+                name="Robert Johnson",
+                age=72,
+                photo="https://randomuser.me/api/portraits/men/75.jpg",
+                last_active=datetime.now()
+            )
+            db.session.add(senior)
+            db.session.commit()
+            
+            # Create medications
+            med1 = Medication(
+                senior_id=senior.id,
+                name="Metformin",
+                dosage="500mg",
+                type="Diabetes",
+                instructions="Take with breakfast and dinner",
+                stock=15
+            )
+            med2 = Medication(
+                senior_id=senior.id,
+                name="Lisinopril",
+                dosage="10mg",
+                type="Blood Pressure",
+                instructions="Take at noon",
+                stock=5
+            )
+            db.session.add_all([med1, med2])
+            db.session.commit()
+            
+            # Create schedules
+            schedule1 = Schedule(
+                medication_id=med1.id,
+                time="08:00",
+                taken=True,
+                timestamp=datetime.now() - timedelta(hours=2)
+            )
+            schedule2 = Schedule(
+                medication_id=med1.id,
+                time="20:00",
+                taken=False
+            )
+            schedule3 = Schedule(
+                medication_id=med2.id,
+                time="12:00",
+                taken=False
+            )
+            db.session.add_all([schedule1, schedule2, schedule3])
+            db.session.commit()
+
+# Initialize sample data on first run
+init_sample_data()
 
 # Static file routes
 @app.route('/')
@@ -88,27 +143,41 @@ def caregiver_dashboard():
 def current_medication(senior_id):
     """Get current medication for a senior"""
     current_time = get_current_time()
-    senior_meds = [m for m in medications if m["seniorId"] == senior_id]
+    
+    # Get senior information
+    senior = Senior.query.get(senior_id)
+    if not senior:
+        return jsonify({"error": "Senior not found"}), 404
+    
+    # Get all medications for senior
+    medications = Medication.query.filter_by(senior_id=senior_id).all()
     
     current_meds = []
-    for med in senior_meds:
-        for sched in med["schedule"]:
-            if sched["time"] == current_time or (sched["time"] > current_time and not sched["taken"]):
+    for med in medications:
+        for sched in med.schedules:
+            # Only include upcoming or current medications that haven't been taken
+            if not sched.taken and (sched.time == current_time or sched.time > current_time):
                 current_meds.append({
-                    "medicationId": med["id"],
-                    "name": med["name"],
-                    "dosage": med["dosage"],
-                    "type": med["type"],
-                    "time": sched["time"],
-                    "taken": sched["taken"],
-                    "instructions": med["instructions"]
+                    "medicationId": med.id,
+                    "name": med.name,
+                    "dosage": med.dosage,
+                    "type": med.type,
+                    "time": sched.time,
+                    "taken": sched.taken,
+                    "instructions": med.instructions
                 })
     
+    # Sort medications by time
     current_meds.sort(key=lambda x: x["time"])
-    senior = next((s for s in seniors if s["id"] == senior_id), None)
     
     return jsonify({
-        "senior": senior,
+        "senior": {
+            "id": senior.id,
+            "name": senior.name,
+            "age": senior.age,
+            "photo": senior.photo,
+            "lastActive": senior.last_active.isoformat() if senior.last_active else None
+        },
         "currentMedication": current_meds[0] if current_meds else None,
         "upcomingMedications": current_meds[1:] if len(current_meds) > 1 else []
     })
@@ -116,7 +185,14 @@ def current_medication(senior_id):
 @app.route('/api/seniors', methods=['GET'])
 def get_seniors():
     """Get list of all seniors"""
-    return jsonify(seniors)
+    seniors_list = Senior.query.all()
+    return jsonify([{
+        "id": senior.id,
+        "name": senior.name,
+        "age": senior.age,
+        "photo": senior.photo,
+        "lastActive": senior.last_active.isoformat() if senior.last_active else None
+    } for senior in seniors_list])
 
 @app.route('/api/record-medication', methods=['POST'])
 @authenticate
@@ -126,35 +202,42 @@ def record_medication(senior_id):
     medication_id = data.get("medicationId")
     current_time = get_current_time()
     
-    medication = next((m for m in medications if m["id"] == medication_id and m["seniorId"] == senior_id), None)
-    if not medication:
+    medication = Medication.query.get(medication_id)
+    if not medication or medication.senior_id != senior_id:
         return jsonify({"error": "Medication not found"}), 404
     
-    schedule_entry = next((s for s in medication["schedule"] if s["time"] == current_time), None)
+    # Find schedule entry for current time
+    schedule_entry = Schedule.query.filter_by(
+        medication_id=medication_id,
+        time=current_time
+    ).first()
+    
     if not schedule_entry:
         return jsonify({"error": "No medication scheduled at this time"}), 400
     
-    if schedule_entry["taken"]:
+    if schedule_entry.taken:
         return jsonify({"error": "Medication already taken"}), 400
     
     # Update the record
-    schedule_entry["taken"] = True
-    schedule_entry["timestamp"] = datetime.now().isoformat()
-    medication["stock"] -= 1
+    schedule_entry.taken = True
+    schedule_entry.timestamp = datetime.now()
+    medication.stock -= 1
     
     # Update senior's last active time
-    senior = next((s for s in seniors if s["id"] == senior_id), None)
+    senior = Senior.query.get(senior_id)
     if senior:
-        senior["lastActive"] = datetime.now().isoformat()
+        senior.last_active = datetime.now()
+    
+    db.session.commit()
     
     return jsonify({
         "success": True,
         "medication": {
-            "id": medication["id"],
-            "name": medication["name"],
-            "dosage": medication["dosage"],
-            "time": schedule_entry["time"],
-            "timestamp": schedule_entry["timestamp"]
+            "id": medication.id,
+            "name": medication.name,
+            "dosage": medication.dosage,
+            "time": schedule_entry.time,
+            "timestamp": schedule_entry.timestamp.isoformat()
         }
     })
 
@@ -162,9 +245,13 @@ def record_medication(senior_id):
 @authenticate
 def emergency_alert(senior_id):
     """Handle emergency alerts"""
-    senior = next((s for s in seniors if s["id"] == senior_id), None)
+    senior = Senior.query.get(senior_id)
     if senior:
-        print(f"EMERGENCY ALERT: {senior['name']} needs immediate assistance!")
+        print(f"EMERGENCY ALERT: {senior.name} needs immediate assistance!")
+        
+        # Update senior's last active time
+        senior.last_active = datetime.now()
+        db.session.commit()
     
     return jsonify({
         "success": True,
