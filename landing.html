@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedGuardian - Welcome</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #7209b7;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #ff9e00;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --card-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f4f8;
+            color: var(--dark);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo i {
+            font-size: 48px;
+            margin-right: 15px;
+            color: var(--primary);
+        }
+        
+        .logo h1 {
+            font-size: 36px;
+            font-weight: 700;
+        }
+        
+        .welcome-text {
+            text-align: center;
+            margin-bottom: 50px;
+            max-width: 600px;
+        }
+        
+        .welcome-text h2 {
+            font-size: 28px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+        
+        .welcome-text p {
+            font-size: 18px;
+            color: var(--gray);
+        }
+        
+        .interface-options {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .interface-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 350px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        
+        .interface-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .interface-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 25px;
+            font-size: 40px;
+            color: white;
+        }
+        
+        .caregiver-icon {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        }
+        
+        .senior-icon {
+            background: linear-gradient(135deg, var(--success), #3aa8d1));
+        }
+        
+        .interface-card h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        
+        .interface-card p {
+            color: var(--gray);
+            margin-bottom: 25px;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            font-size: 16px;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+        
+        @media (max-width: 768px) {
+            .interface-options {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .interface-card {
+                width: 100%;
+                max-width: 350px;
+            }
+            
+            .logo h1 {
+                font-size: 28px;
+            }
+            
+            .welcome-text h2 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">
+        <i class="fas fa-pills"></i>
+        <h1>MedGuardian</h1>
+    </div>
+    
+    <div class="welcome-text">
+        <h2>Welcome to MedGuardian</h2>
+        <p>Please select your interface to continue to the medication management system</p>
+    </div>
+    
+    <div class="interface-options">
+        <div class="interface-card" onclick="window.location.href='/caregiver'">
+            <div class="interface-icon caregiver-icon">
+                <i class="fas fa-user-md"></i>
+            </div>
+            <h3>Caregiver Dashboard</h3>
+            <p>Access the full caregiver dashboard to manage medications, view adherence reports, and monitor seniors.</p>
+            <button class="btn btn-primary">Enter Dashboard</button>
+        </div>
+        
+        <div class="interface-card" onclick="window.location.href='/senior'">
+            <div class="interface-icon senior-icon">
+                <i class="fas fa-user-injured"></i>
+            </div>
+            <h3>Senior Interface</h3>
+            <p>Simple interface for seniors to view current medications, record doses, and request assistance.</p>
+            <button class="btn btn-primary">Enter Senior View</button>
+        </div>
+    </div>
+
+    <script>
+        // You can add any initialization scripts here if needed
+    </script>
+</body>
+</html>
