@@ -212,6 +212,26 @@
             transform: translateY(-3px);
         }
         
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+        }
+        
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e68a00;
+            transform: translateY(-3px);
+        }
+        
         .upcoming-meds {
             background: white;
             border-radius: var(--border-radius);
@@ -316,35 +336,121 @@
             transform: scale(1.1);
             box-shadow: 0 15px 30px rgba(247, 37, 133, 0.4);
         }
-
-        /* Video monitoring elements */
-        .video-monitoring {
+        
+        /* Camera monitoring elements */
+        .camera-section {
             background: white;
             border-radius: var(--border-radius);
-            padding: 20px;
+            padding: 25px;
             margin-bottom: 25px;
             box-shadow: var(--card-shadow);
+        }
+        
+        .camera-section h3 {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--light-gray);
+        }
+        
+        .camera-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        
+        #camera-feed {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 8px;
+            background: #000;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        #vision-canvas {
+            display: none;
+        }
+        
+        .camera-controls, .monitoring-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        #monitoring-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #f8f9fa;
             text-align: center;
         }
-
-        .video-monitoring h3 {
-            font-size: 24px;
+        
+        #vision-events {
+            margin-top: 20px;
+        }
+        
+        #vision-events h4 {
+            font-size: 20px;
             color: var(--primary);
             margin-bottom: 15px;
         }
-
-        #video-feed {
-            width: 100%;
-            max-width: 600px;
-            border-radius: 12px;
-            background: var(--dark);
-            margin-bottom: 15px;
+        
+        .log-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--light-gray);
         }
-
-        #video-canvas {
-            display: none;
+        
+        .log-item:last-child {
+            border-bottom: none;
         }
-
+        
+        .log-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            color: white;
+        }
+        
+        .log-icon.icon-primary {
+            background: var(--primary);
+        }
+        
+        .log-icon.icon-success {
+            background: var(--success);
+        }
+        
+        .log-icon.icon-warning {
+            background: var(--warning);
+        }
+        
+        .log-content {
+            flex: 1;
+        }
+        
+        .log-content h4 {
+            font-size: 18px;
+            margin-bottom: 3px;
+            color: var(--dark);
+        }
+        
+        .log-content p {
+            font-size: 14px;
+            color: var(--gray);
+        }
+        
+        .log-time {
+            font-size: 14px;
+            color: var(--gray);
+        }
+        
         /* Vision notification */
         .vision-notification {
             position: fixed;
@@ -359,7 +465,7 @@
             z-index: 1000;
             animation: slideUp 0.3s ease;
         }
-
+        
         @keyframes slideUp {
             from { bottom: -50px; opacity: 0; }
             to { bottom: 20px; opacity: 1; }
@@ -410,6 +516,10 @@
             .user-info h2 {
                 font-size: 24px;
             }
+            
+            .camera-controls, .monitoring-controls {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -447,17 +557,42 @@
                 </button>
             </div>
         </div>
-
-        <div class="video-monitoring">
-            <h3>Medication Verification</h3>
-            <video id="video-feed" autoplay playsinline></video>
-            <canvas id="video-canvas"></canvas>
-            <button class="btn btn-success" id="start-monitoring">
-                <i class="fas fa-video"></i> Start Monitoring
-            </button>
-            <button class="btn btn-danger" id="stop-monitoring" style="display: none;">
-                <i class="fas fa-stop"></i> Stop Monitoring
-            </button>
+        
+        <!-- Add this section in the body where you want the camera interface -->
+        <div class="camera-section" style="margin: 20px 0;">
+            <h3>Medication Monitoring</h3>
+            
+            <div class="camera-container" style="position: relative; margin-bottom: 15px;">
+                <video id="camera-feed" autoplay playsinline style="width: 100%; max-width: 500px; border-radius: 8px; background: #000;"></video>
+                <canvas id="vision-canvas" style="display: none;"></canvas>
+            </div>
+            
+            <div class="camera-controls" style="margin-bottom: 15px;">
+                <button id="start-camera" class="btn btn-primary">
+                    <i class="fas fa-camera"></i> Start Camera
+                </button>
+                <button id="stop-camera" class="btn btn-danger" style="display: none;">
+                    <i class="fas fa-stop"></i> Stop Camera
+                </button>
+            </div>
+            
+            <div class="monitoring-controls">
+                <button id="start-monitoring" class="btn btn-success" disabled>
+                    <i class="fas fa-eye"></i> Start Monitoring
+                </button>
+                <button id="stop-monitoring" class="btn btn-warning" style="display: none;">
+                    <i class="fas fa-pause"></i> Stop Monitoring
+                </button>
+            </div>
+            
+            <div id="monitoring-status" style="margin-top: 15px; padding: 10px; border-radius: 8px; background: #f8f9fa;">
+                Status: <span id="status-text">Camera not started</span>
+            </div>
+            
+            <div id="vision-events" style="margin-top: 20px;">
+                <h4>Detected Events:</h4>
+                <div id="events-list"></div>
+            </div>
         </div>
         
         <div class="upcoming-meds">
@@ -492,118 +627,260 @@
             </div>
         </div>
     </div>
-
+    
     <script>
-        // Variables for video monitoring
-        let stream = null;
+        // Camera and vision monitoring functionality
+        let cameraStream = null;
         let monitoringInterval = null;
-        const sessionId = Date.now().toString(); // Unique session ID
-
-        // Initialize video stream
-        async function initVideoStream() {
+        let isMonitoring = false;
+        // DOM elements
+        const startCameraBtn = document.getElementById('start-camera');
+        const stopCameraBtn = document.getElementById('stop-camera');
+        const startMonitoringBtn = document.getElementById('start-monitoring');
+        const stopMonitoringBtn = document.getElementById('stop-monitoring');
+        const cameraFeed = document.getElementById('camera-feed');
+        const statusText = document.getElementById('status-text');
+        const eventsList = document.getElementById('events-list');
+        
+        // Start camera
+        startCameraBtn.addEventListener('click', async () => {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'user', // Use front camera
+                // Request camera access
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
                         width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    },
-                    audio: false
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    } 
                 });
                 
-                const video = document.getElementById('video-feed');
-                video.srcObject = stream;
+                // Display camera feed
+                cameraFeed.srcObject = cameraStream;
                 
-                document.getElementById('start-monitoring').style.display = 'none';
-                document.getElementById('stop-monitoring').style.display = 'inline-flex';
+                // Update UI
+                startCameraBtn.style.display = 'none';
+                stopCameraBtn.style.display = 'inline-block';
+                startMonitoringBtn.disabled = false;
+                statusText.textContent = 'Camera active';
                 
-                return true;
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                alert('Could not access the camera. Please ensure you have granted camera permissions.');
-                return false;
+                console.log('Camera started successfully');
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                statusText.textContent = 'Error: Could not access camera';
+                alert('Could not access the camera. Please ensure you have granted permission and that your device has a camera.');
             }
-        }
-
-        // Video monitoring functionality
-        function startMonitoring() {
-            const video = document.getElementById('video-feed');
-            const canvas = document.getElementById('video-canvas');
-            const context = canvas.getContext('2d');
-            
-            // Set canvas dimensions to match video
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            
-            monitoringInterval = setInterval(() => {
-                // Draw current video frame to canvas
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        });
+        
+        // Stop camera
+        stopCameraBtn.addEventListener('click', () => {
+            if (cameraStream) {
+                // Stop all tracks
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
                 
-                // Get frame data
-                const frameData = canvas.toDataURL('image/jpeg');
+                // Update UI
+                cameraFeed.srcObject = null;
+                startCameraBtn.style.display = 'inline-block';
+                stopCameraBtn.style.display = 'none';
+                startMonitoringBtn.disabled = true;
+                statusText.textContent = 'Camera stopped';
                 
-                // Send frame to server for processing
-                sendFrameToServer(frameData);
-            }, 1000); // Process at 1 FPS (adjust as needed)
-        }
-
+                // Stop monitoring if active
+                if (isMonitoring) {
+                    stopMonitoring();
+                }
+            }
+        });
+        
+        // Start monitoring
+        startMonitoringBtn.addEventListener('click', () => {
+            isMonitoring = true;
+            startMonitoringBtn.style.display = 'none';
+            stopMonitoringBtn.style.display = 'inline-block';
+            statusText.textContent = 'Monitoring active';
+            
+            // Notify server that monitoring has started
+            fetch('/api/vision/start_monitoring', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ seniorId: 1 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Monitoring started:', data);
+                
+                // Start processing frames
+                monitoringInterval = setInterval(processFrame, 1000); // Process every second
+            })
+            .catch(error => {
+                console.error('Error starting monitoring:', error);
+                statusText.textContent = 'Error starting monitoring';
+            });
+        });
+        
+        // Stop monitoring
+        stopMonitoringBtn.addEventListener('click', stopMonitoring);
+        
         function stopMonitoring() {
+            isMonitoring = false;
+            startMonitoringBtn.style.display = 'inline-block';
+            stopMonitoringBtn.style.display = 'none';
+            statusText.textContent = 'Camera active (monitoring stopped)';
+            
+            // Clear interval
             if (monitoringInterval) {
                 clearInterval(monitoringInterval);
                 monitoringInterval = null;
             }
             
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            
-            document.getElementById('start-monitoring').style.display = 'inline-flex';
-            document.getElementById('stop-monitoring').style.display = 'none';
-            
-            const video = document.getElementById('video-feed');
-            video.srcObject = null;
+            // Notify server that monitoring has stopped
+            fetch('/api/vision/stop_monitoring', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ seniorId: 1 })
+            })
+            .catch(error => {
+                console.error('Error stopping monitoring:', error);
+            });
         }
-
-        async function sendFrameToServer(frameData) {
-            try {
-                const response = await fetch('/api/vision/process-frame', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Senior-Id': '1'
-                    },
-                    body: JSON.stringify({
-                        sessionId: sessionId,
-                        frameData: frameData
-                    })
-                });
-                
-                const data = await response.json();
-                
-                // Handle detected events
+        
+        // Process video frame
+        function processFrame() {
+            if (!cameraStream || !isMonitoring) return;
+            
+            // Create a canvas to capture the frame
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            // Set canvas dimensions to match video
+            canvas.width = cameraFeed.videoWidth;
+            canvas.height = cameraFeed.videoHeight;
+            
+            // Draw current video frame to canvas
+            context.drawImage(cameraFeed, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send to server for processing
+            fetch('/api/vision/process_frame', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    seniorId: 1,
+                    image: imageData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Process detected events
                 if (data.events && data.events.length > 0) {
                     data.events.forEach(event => {
-                        console.log('Detected event:', event);
+                        displayEvent(event);
                         
-                        // Update UI based on events
+                        // If medication intake detected, show notification
                         if (event.type === 'hand_to_mouth') {
-                            // Show visual feedback
                             showNotification('Medication intake detected');
                             
                             // Automatically record medication as taken if confirmed
                             const medicationId = document.querySelector('#took-medication').dataset.medicationId;
-                            if (medicationId && confirm('Did you just take your medication?')) {
+                            if (medicationId) {
                                 recordMedicationTaken(medicationId);
                             }
                         }
                     });
                 }
-            } catch (error) {
+            })
+            .catch(error => {
                 console.error('Error processing frame:', error);
+            });
+        }
+        
+        // Display detected event
+        function displayEvent(event) {
+            const eventElement = document.createElement('div');
+            eventElement.className = 'log-item';
+            
+            const iconClass = getEventIcon(event.type);
+            const eventTime = new Date().toLocaleTimeString();
+            
+            eventElement.innerHTML = `
+                <div class="log-icon ${iconClass.class}">
+                    <i class="fas ${iconClass.icon}"></i>
+                </div>
+                <div class="log-content">
+                    <h4>${formatEventType(event.type)}</h4>
+                    <p>Confidence: ${Math.round(event.confidence * 100)}%</p>
+                </div>
+                <div class="log-time">
+                    ${eventTime}
+                </div>
+            `;
+            
+            // Add to top of events list
+            if (eventsList.firstChild) {
+                eventsList.insertBefore(eventElement, eventsList.firstChild);
+            } else {
+                eventsList.appendChild(eventElement);
+            }
+            
+            // Keep only last 10 events
+            while (eventsList.children.length > 10) {
+                eventsList.removeChild(eventsList.lastChild);
             }
         }
-
+        
+        // Helper functions (same as in caregiver.html)
+        function getEventIcon(eventType) {
+            switch (eventType) {
+                case 'bottle_open':
+                    return { class: 'icon-primary', icon: 'fa-bottle-droplet' };
+                case 'bottle_close':
+                    return { class: 'icon-success', icon: 'fa-bottle-droplet' };
+                case 'hand_to_mouth':
+                    return { class: 'icon-warning', icon: 'fa-hand' };
+                default:
+                    return { class: 'icon-primary', icon: 'fa-circle' };
+            }
+        }
+        
+        function formatEventType(eventType) {
+            switch (eventType) {
+                case 'bottle_open':
+                    return 'Bottle Opened';
+                case 'bottle_close':
+                    return 'Bottle Closed';
+                case 'hand_to_mouth':
+                    return 'Medication Intake';
+                default:
+                    return eventType;
+            }
+        }
+        
+        // Check for monitoring status periodically
+        setInterval(() => {
+            if (isMonitoring) {
+                fetch('/api/vision/status?seniorId=1')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'active') {
+                        // Server says monitoring is not active, stop local monitoring
+                        stopMonitoring();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking monitoring status:', error);
+                });
+            }
+        }, 5000); // Check every 5 seconds
+        
+        // Show notification
         function showNotification(message) {
             const notification = document.createElement('div');
             notification.className = 'vision-notification';
@@ -614,7 +891,7 @@
                 notification.remove();
             }, 3000);
         }
-
+        
         // Fetch current medication and update UI
         async function loadCurrentMedication() {
             const response = await fetch('http://localhost:3000/api/current-medication?seniorId=1');
@@ -633,7 +910,7 @@
                 document.querySelector('#skip-medication').dataset.medicationId = '';
             }
         }
-
+        
         // Record medication taken
         async function recordMedicationTaken(medicationId) {
             const response = await fetch('http://localhost:3000/api/record-medication', {
@@ -652,18 +929,18 @@
                 alert('There was an error recording your medication.');
             }
         }
-
+        
         // Optionally, handle skip medication
         async function skipMedication(medicationId) {
             // You may want to POST to a skip endpoint or notify caregivers
             alert('Your caregiver has been notified that you skipped this dose.');
             loadCurrentMedication(); // Optionally refresh UI
         }
-
+        
         document.addEventListener('DOMContentLoaded', function() {
             // Load current medication on page load
             loadCurrentMedication();
-
+            
             // Medication taken button
             document.getElementById('took-medication').addEventListener('click', function() {
                 const medicationId = this.dataset.medicationId;
@@ -685,18 +962,6 @@
                 if(confirm('Are you in an emergency situation and need immediate help?')) {
                     alert('EMERGENCY ALERT SENT! Caregivers and emergency contacts have been notified. Help is on the way.');
                 }
-            });
-
-            // Video monitoring buttons
-            document.getElementById('start-monitoring').addEventListener('click', async function() {
-                const success = await initVideoStream();
-                if (success) {
-                    startMonitoring();
-                }
-            });
-
-            document.getElementById('stop-monitoring').addEventListener('click', function() {
-                stopMonitoring();
             });
         });
     </script>
